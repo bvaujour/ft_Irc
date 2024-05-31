@@ -6,7 +6,7 @@
 /*   By: bvaujour <bvaujour@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/05/30 23:14:13 by bvaujour          #+#    #+#             */
-/*   Updated: 2024/05/31 01:09:25 by bvaujour         ###   ########.fr       */
+/*   Updated: 2024/05/31 17:26:02 by bvaujour         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -19,13 +19,18 @@ Server::Server()
 	
 }
 
-Server::Server()
+Server::~Server()
 {
-	size_t	i(0);
-
-	while (i < _pfds.size())
-		close(_pfds[i++].fd);
-	
+	std::vector<Client*>::iterator			it;
+	std::cout << _Clients.size() << std::endl;
+	it = _Clients.begin();
+	while (it != _Clients.end())
+	{
+		close ((*it)->getFd());
+		delete *it;
+		it++;
+	}
+	close (_pfds[0].fd);
 }
 
 Server::Server(const Server& toCpy)
@@ -67,7 +72,7 @@ Server::Server(const int& port, const std::string password_input) : _password(pa
 
 	new_poll.events = POLLIN; //le poll doit lire des infos;
 	new_poll.revents = 0; //0 events actuellement donc par defaut;
-	_pfds.push_back(new_poll);
+	_pfds.push_back(new_poll); 
 	serverExec();
 }
 
@@ -84,73 +89,59 @@ void Server::serverExec()
 				if (i == 0)
 					connectClient();
 				else
-					readData(_clients[i - 1]);
+					readData(*_Clients[i - 1]);
 			}
 		}
 	}
 }
 
-void Server::signalHandler(int signum) //static
+void	Server::addIrssiClient(int fd)
 {
-	(void)signum;
-	std::cout << "SIGNAL RECEIVED" << std::endl;
-	Server::_signal = true;
+	Client	*client = new IrssiClient();
+
+	std::cout << "irssi Client connected" << std::endl;
+	const char *welcome_msg = ":localhost 001 user :Welcome to the IRC server\r\n";
+	send(fd, welcome_msg, strlen(welcome_msg), 0);
+	client->setFd(fd);
+	_Clients.push_back(client);
 }
 
-void Server::connectClient()
+void	Server::addNcClient(int fd)
 {
-	Client client;
+	Client	*client = new NcClient();
+
+	std::cout << "nc Client connected" << std::endl;
+	client->setFd(fd);
+	_Clients.push_back(client);
+}
+void	Server::connectClient()
+{
 	struct sockaddr_in sock_addr;
 	socklen_t len = sizeof(sock_addr);
 	struct pollfd		new_poll = {};
 
-	client.setState(LOGIN);
-	client.setChannel("#general");
-	client.setFd(accept(_pfds[0].fd, (struct sockaddr *)&sock_addr, &len));
-	if (client.getFd() == -1)
+	std::cout << "connectClient" << std::endl;
+	new_poll.fd = accept(_pfds[0].fd, (struct sockaddr *)&sock_addr, &len);
+	if (new_poll.fd == -1)
 		throw std::runtime_error("Client socket creation failed");
-	if (fcntl(client.getFd(), F_SETFL, O_NONBLOCK) == -1) //met l'option O_NONBLOCK pour faire une socket non bloquante
+	if (fcntl(new_poll.fd, F_SETFL, O_NONBLOCK) == -1) //met l'option O_NONBLOCK pour faire une socket non bloquante
 		throw(std::runtime_error("set option (O_NONBLOCK) failed"));
-	new_poll.fd = client.getFd();
 	new_poll.events = POLLIN;
 	new_poll.revents = 0;
 	_pfds.push_back(new_poll);
-	_clients.push_back(client);
-	const char *welcome_msg = ":localhost 001 user :Welcome to the IRC server\r\n";
-	char buffer[1024] = {0};
-	read(client.getFd(), buffer, 1024);
-    std::cout << buffer << std::endl;
-    send(client.getFd(), welcome_msg, strlen(welcome_msg), 0);
+	if (ServerRecv(new_poll.fd))
+		addIrssiClient(new_poll.fd);
+	else
+		addNcClient(new_poll.fd);
 }
 
 void	Server::readData(Client& client)
 {
-	char buffer[1024] = {0};
-	ssize_t bytes;
-	bytes = recv(client.getFd(), buffer, sizeof(buffer), 0); //MSG_WAITALL MSG_DONTWAIT MSG_PEEK MSG_TRUNC
-	if (bytes <= 0)
+	std::cout << "readData" << std::endl;
+	if (!ServerRecv(client.getFd()))
+	{
 		clearClient(client);
-	buffer[bytes] = '\0';
-	std::cout << CYAN << "Server receive: " << buffer << RESET << std::endl;
-	
-	size_t i(0);
-	
-	while (i < _clients.size())
-		send(_clients[i++].getFd(), buffer, strlen(buffer), 0);
-	
-}
-
-void	Server::clearClient(Client& client)
-{
-	std::vector<Client>::iterator			it;
-	std::vector<struct pollfd>::iterator	it2;
-
-	it2 = _pfds.begin();
-	while (it2 != _pfds.end() && it2->fd != client.getFd())
-		it2++;
-	_pfds.erase(it2);
-	it = _clients.begin();
-	while (it != _clients.end() && it->getFd() != client.getFd())
-		it++;
-	_clients.erase(it);
+		return ;
+	}
+	ServerSend(client);
 }

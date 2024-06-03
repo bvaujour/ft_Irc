@@ -6,7 +6,7 @@
 /*   By: bvaujour <bvaujour@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/05/27 14:28:29 by bvaujour          #+#    #+#             */
-/*   Updated: 2024/06/02 02:47:36 by bvaujour         ###   ########.fr       */
+/*   Updated: 2024/06/02 19:37:09 by bvaujour         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -37,9 +37,34 @@ void Server::signalHandler(int signum) //static
 	Server::_signal = true;
 }
 
-void Server::sendError(int fd, const std::string& code, const std::string& nick, const std::string& msg)
+void Server::sendWithCode(const Client& client, const std::string& code, const std::string& msg, const std::string& color) const
 {
-	std::string message = ":server " + code + " " + nick + " :" + RED + msg + "\r\n";
-	send(fd, message.c_str(), message.length(), 0);
+	std::string message = ":42IRCserver " + code + " " + client.getNick() + " :" + color + msg + "\r\n";
+	send(client.getFd(), message.c_str(), message.length(), 0);
+	std::cout << CYAN << "[Server send]" << message << RESET << std::endl;
+}
+
+void		Server::detailString(const std::string& str) const
+{
+	int i(0);
+
+	std::cout << YELLOW << "detailString:";
+	while (str[i])
+	{
+		if (str[i] == '\n')
+			std::cout << "\\n";
+		else if (str[i] == '\r')
+			std::cout << "\\r";
+		else
+			std::cout << str[i];
+		i++;
+	}
+	std::cout << RESET << std::endl;;
+
+}
+void Server::sendBasic(const Client& client, const std::string& msg, const std::string& color) const
+{
+	std::string message = color + msg + "\r\n";
+	send(client.getFd(), message.c_str(), message.length(), 0);
 	std::cout << CYAN << "[Server send]" << message << RESET << std::endl;
 }

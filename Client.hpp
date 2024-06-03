@@ -6,14 +6,13 @@
 /*   By: bvaujour <bvaujour@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/05/22 16:20:22 by vanitas           #+#    #+#             */
-/*   Updated: 2024/06/02 01:26:00 by bvaujour         ###   ########.fr       */
+/*   Updated: 2024/06/02 16:21:56 by bvaujour         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #pragma once
 
 # include "Irc.hpp"
-# include "Channel.hpp"
 
 class	Client
 {
@@ -27,12 +26,13 @@ class	Client
 		std::string	_nick;
 		std::string	_realname;
 		std::string	_pass;
-	
+
+		std::string	_message;
 	public:
-		Client();
-		Client(const Client &cpy);
-		Client	&operator=(const Client &rhs);
-		virtual ~Client();
+					Client();
+					Client(const Client& cpy);
+		Client		&operator=(const Client &rhs);
+		virtual		~Client();
 	
 		int				getFd() const;
 		void			setFd(int fd_input);
@@ -41,26 +41,27 @@ class	Client
 		void			setIp(int ip_input);
 	
 		const			std::string& getUsername() const;
-		void			setUsername(std::string username_input);
+		void			setUsername(const std::string& username_input);
 	
 		const			std::string& getChannel() const;
-		void			setChannel(std::string channel_input);
+		void			setChannel(const std::string& channel_input);
 	
 		const			State& getState() const;
 		void			setState(const State& state_input);
 
 		const			std::string& getPass() const;
-		void			setPass(std::string pass_input);
+		void			setPass(const std::string& pass_input);
 
 		const			std::string& getNick() const;
-		void			setNick(std::string nick_input);
+		void			setNick(const std::string& nick_input);
 		
 		const			std::string& getRealname() const;
-		void			setRealname(std::string realname_input);
+		void			setRealname(const std::string& realname_input);
 
 		void			smiley(std::string& input);
 
-		static std::vector<std::string>	splitInput(std::string input);
+		static std::vector<std::string>	splitInput(const std::string& input);
 		
-		virtual void					ParseAndRespond(std::string input) = 0;
+		virtual Destination				ParseAndRespond(std::string& input) = 0;
+		virtual void					formatText(std::string& input) = 0;
 };

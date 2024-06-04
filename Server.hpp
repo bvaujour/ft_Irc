@@ -1,46 +1,41 @@
-/* ************************************************************************** */
-/*                                                                            */
-/*                                                        :::      ::::::::   */
-/*   Server.hpp                                         :+:      :+:    :+:   */
-/*                                                    +:+ +:+         +:+     */
-/*   By: bvaujour <bvaujour@student.42.fr>          +#+  +:+       +#+        */
-/*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2024/05/22 14:43:27 by bvaujour          #+#    #+#             */
-/*   Updated: 2024/06/02 19:02:01 by bvaujour         ###   ########.fr       */
-/*                                                                            */
-/* ************************************************************************** */
-
 #pragma once
 
 # include <iostream>
 # include "Irc.hpp"
-# include "IrssiClient.hpp"
-# include "NcClient.hpp"
+# include "Client.hpp"
+# include "Channel.hpp"
+# include "Bot.hpp"
+
 
 class	Server
 {
 	private:
 		const std::string			_password;
 		int							_port;
+
+		static bool					_signal;
+	
 		std::vector<struct pollfd>	_pfds;
-		std::vector<Client*>		_Clients;
+		std::vector<Client>			_Clients;
+		std::vector<Channel>		_Channels;
+	
 		void						serverInit();
 		void						serverExec();
 		void						connectClient();
-		static bool					_signal;
 		void						readData(Client& client);
 		int							ServerRecv(int fd);
-		void						addIrssiClient(int fd);
-		void						addNcClient(int fd);
-		void						sendWithCode(const Client& client, const std::string& code, const std::string& msg, const std::string& color) const;
-		void						sendBasic(const Client& client, const std::string& msg, const std::string& color) const;
+		
 		std::string					_receivedBuffer;
+		std::string					_date;
+
 	public:
-								Server();
-								~Server();
-								Server(const int& port, const std::string& password);
-								Server(const Server& toCpy);
-		Server&					operator=(const Server& toCpy);
+							Server();
+							~Server();
+							Server(const int& port, const std::string& password);
+							Server(const Server& toCpy);
+		Server&				operator=(const Server& toCpy);
+
+		const std::string&		getPassword() const;
 
 		static void					signalHandler(int signum);
 
@@ -48,6 +43,10 @@ class	Server
 
 		void						run();
 
-		void		detailString(const std::string& str)const ; //debug
+		void						getServerCreationTime() ;
+		const std::string&			getDate() const ;
 
+		int							newNickAccess(const std::string& nickname);
+		Channel&					newChannelAccess(const std::string& chanName);
+		
 };

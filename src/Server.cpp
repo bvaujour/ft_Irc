@@ -1,15 +1,3 @@
-/* ************************************************************************** */
-/*                                                                            */
-/*                                                        :::      ::::::::   */
-/*   Server.cpp                                         :+:      :+:    :+:   */
-/*                                                    +:+ +:+         +:+     */
-/*   By: bvaujour <bvaujour@student.42.fr>          +#+  +:+       +#+        */
-/*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2024/05/30 23:14:13 by bvaujour          #+#    #+#             */
-/*   Updated: 2024/06/02 20:21:03 by bvaujour         ###   ########.fr       */
-/*                                                                            */
-/* ************************************************************************** */
-
 #include "../Server.hpp"
 
 bool Server::_signal = false;
@@ -21,13 +9,13 @@ Server::Server()
 
 Server::~Server()
 {
-	std::vector<Client*>::iterator	it;
+	std::vector<Client>::iterator	it;
 
-	it = _Clients.begin();
+	it = _Clients.begin() + 1; // bot est au debut sans fd ouvert
+	
 	while (it != _Clients.end())
 	{
-		close ((*it)->getFd());
-		delete *it;
+		close (it->getFd());
 		it++;
 	}
 	close (_pfds[0].fd);
@@ -50,9 +38,16 @@ Server&	Server::operator=(const Server& toCpy)
 	return (*this);
 }
 
-Server::Server(const int& port, const std::string& password_input) : _password(password_input), _port(port)
+Server::Server(const int& port, const std::string& password_input) : _password(password_input), _port(port) {}
+
+const std::string& Server::getDate() const
 {
-	
+	return this->_date;
+}
+
+const std::string&	Server::getPassword() const
+{
+	return (_password);
 }
 
 void	Server::serverInit()
@@ -60,6 +55,8 @@ void	Server::serverInit()
 	struct pollfd		new_poll= {};
 	struct sockaddr_in	sock_addr; //structure pour l'adresse internet
 	int uh = 1; // necessaire car parametre opt_value de setsockopt() = const void *
+
+	_Clients.push_back(Bot(*this));
 
 	sock_addr.sin_family = AF_INET; //on set le type en IPV4
 	sock_addr.sin_port = htons(_port); // converti le port(int) en big endian (pour le network byte order)
@@ -79,6 +76,7 @@ void	Server::serverInit()
 		throw(std::runtime_error("socket binding failed"));
 	if (listen(new_poll.fd, SOMAXCONN) == -1) //la socket devient passive = c'est une socket serveur qui attend des connections (SOMAXCONN = max_connections autorise)
 		throw(std::runtime_error("listen() failed"));
+	getServerCreationTime();
 }
 
 void Server::serverExec()
@@ -94,7 +92,7 @@ void Server::serverExec()
 				if (i == 0)
 					connectClient();
 				else
-					readData(*_Clients[i - 1]);
+					readData(_Clients[i]);
 			}
 		}
 	}
@@ -111,37 +109,14 @@ void	Server::run()
 
 
 
-
-void	Server::addIrssiClient(int fd)
-{
-	Client	*client = new IrssiClient(_receivedBuffer, fd);
-	std::string welcome_msg;
-
-	_Clients.push_back(client);
-	if (client->getPass() != _password)
-	{
-		sendWithCode(*client, "464", "Password incorrect", RED);
-		clearClient(*client);
-	}
-	else
-		sendWithCode(*client, "001", "Welcome to the IRC server", GREEN);
-}
-
-void	Server::addNcClient(int fd)
-{
-	Client	*client = new NcClient();
-
-	client->setFd(fd);
-	_Clients.push_back(client);
-	// sendBasic(*)
-}
-
 void	Server::connectClient()
 {
-	struct sockaddr_in sock_addr;
-	socklen_t len = sizeof(sock_addr);
+	Client				client(*this);
+	struct sockaddr_in 	sock_addr;
+	socklen_t 			len;
 	struct pollfd		new_poll = {};
 
+	len = sizeof(sock_addr);
 	new_poll.fd = accept(_pfds[0].fd, (struct sockaddr *)&sock_addr, &len);
 	if (new_poll.fd == -1)
 		throw std::runtime_error("Client socket creation failed");
@@ -150,10 +125,10 @@ void	Server::connectClient()
 	new_poll.events = POLLIN;
 	new_poll.revents = 0;
 	_pfds.push_back(new_poll);
-	if (!ServerRecv(new_poll.fd))
-		return (addNcClient(new_poll.fd));
-	addIrssiClient(new_poll.fd);
+	client.setFd(new_poll.fd);
+	_Clients.push_back(client);
 }
+
 
 
 
@@ -179,15 +154,6 @@ void	Server::readData(Client& client)
 {
 	if (!ServerRecv(client.getFd()))
 		return (clearClient(client));
-	switch (client.ParseAndRespond(_receivedBuffer))
-	{
-		case ANSWER_SENDER:
-			return (sendBasic(client, _receivedBuffer, ""));
-		case SEND_CHAN:
-			return (sendBasic(client, _receivedBuffer, ""));
-		case DEFAULT:
-			return;
-	}
-	// client.ParseAndRespond(_strBuf);
+	client.ParseAndRespond(_receivedBuffer);
 }
 

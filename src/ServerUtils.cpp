@@ -1,20 +1,8 @@
-/* ************************************************************************** */
-/*                                                                            */
-/*                                                        :::      ::::::::   */
-/*   ServerUtils.cpp                                    :+:      :+:    :+:   */
-/*                                                    +:+ +:+         +:+     */
-/*   By: bvaujour <bvaujour@student.42.fr>          +#+  +:+       +#+        */
-/*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2024/05/27 14:28:29 by bvaujour          #+#    #+#             */
-/*   Updated: 2024/06/02 19:37:09 by bvaujour         ###   ########.fr       */
-/*                                                                            */
-/* ************************************************************************** */
-
 #include "../Server.hpp"
 
 void	Server::clearClient(Client& client)
 {
-	std::vector<Client*>::iterator			it;
+	std::vector<Client>::iterator			it;
 	std::vector<struct pollfd>::iterator	it2;
 
 	std::cout << "Entering ClearClient" << std::endl;
@@ -22,11 +10,10 @@ void	Server::clearClient(Client& client)
 	while (it2 != _pfds.end() && it2->fd != client.getFd())
 		it2++;
 	_pfds.erase(it2);
-	it = _Clients.begin();
-	while (it != _Clients.end() && (*it)->getFd() != client.getFd())
+	it = _Clients.begin() + 1; // on check pas le bot
+	while (it != _Clients.end() && it->getFd() != client.getFd())
 		it++;
-	close((*it)->getFd());
-	delete *it;
+	close(it->getFd());
 	_Clients.erase(it);
 }
 
@@ -37,34 +24,55 @@ void Server::signalHandler(int signum) //static
 	Server::_signal = true;
 }
 
-void Server::sendWithCode(const Client& client, const std::string& code, const std::string& msg, const std::string& color) const
+
+void Server::getServerCreationTime()
 {
-	std::string message = ":42IRCserver " + code + " " + client.getNick() + " :" + color + msg + "\r\n";
-	send(client.getFd(), message.c_str(), message.length(), 0);
-	std::cout << CYAN << "[Server send]" << message << RESET << std::endl;
+    // Obtenir l'heure actuelle
+    std::time_t now = std::time(nullptr);
+    // Convertir l'heure en structure tm pour le formatage
+    std::tm* now_tm = std::localtime(&now);
+    
+    // Créer une chaîne de caractères pour la date et l'heure formatées
+    char buffer[80] = {0};
+    std::strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", now_tm);
+    
+    // Retourner la chaîne formatée
+    this->_date = buffer;
 }
 
-void		Server::detailString(const std::string& str) const
-{
-	int i(0);
 
-	std::cout << YELLOW << "detailString:";
-	while (str[i])
+Channel&	Server::newChannelAccess(const std::string& chanName)
+{
+	std::vector<Channel>::iterator	it;
+	Channel newChannel;
+
+	std::cout << "newChannelAccess look for channel " << chanName << std::endl;
+	it = _Channels.begin();
+	while (it != _Channels.end())
 	{
-		if (str[i] == '\n')
-			std::cout << "\\n";
-		else if (str[i] == '\r')
-			std::cout << "\\r";
-		else
-			std::cout << str[i];
-		i++;
+		if (it->getName() == chanName)
+		{
+			std::cout << chanName << " exists, returning it" << std::endl;
+			return (*it);
+		}
+		it++;
 	}
-	std::cout << RESET << std::endl;;
-
+	newChannel.setName(chanName);
+	_Channels.push_back(newChannel);
+	std::cout << chanName << " created" << std::endl;
+	return (*(_Channels.end() - 1));
 }
-void Server::sendBasic(const Client& client, const std::string& msg, const std::string& color) const
+
+int	Server::newNickAccess(const std::string& nickname)
 {
-	std::string message = color + msg + "\r\n";
-	send(client.getFd(), message.c_str(), message.length(), 0);
-	std::cout << CYAN << "[Server send]" << message << RESET << std::endl;
+	std::vector<Client>::iterator	it;
+
+	it = _Clients.begin();
+	while (it != _Clients.end())
+	{
+		if (it->getNick() == nickname)
+			return (0);
+		it++;
+	}
+	return (1);
 }

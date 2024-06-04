@@ -1,15 +1,3 @@
-/* ************************************************************************** */
-/*                                                                            */
-/*                                                        :::      ::::::::   */
-/*   Irc.hpp                                            :+:      :+:    :+:   */
-/*                                                    +:+ +:+         +:+     */
-/*   By: bvaujour <bvaujour@student.42.fr>          +#+  +:+       +#+        */
-/*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2024/05/17 15:55:33 by bvaujour          #+#    #+#             */
-/*   Updated: 2024/06/02 14:54:39 by bvaujour         ###   ########.fr       */
-/*                                                                            */
-/* ************************************************************************** */
-
 #pragma once
 
 
@@ -26,6 +14,9 @@
 # include <string.h>
 # include <sstream>
 # include <algorithm> 
+# include <ctime>
+
+# include "FormatIRC.hpp"
 
 // Smiley
 # define SMILE "\U0001f604"
@@ -124,16 +115,17 @@
 #define CYAN        "\033[36m"      /* Cyan */
 #define WHITE       "\033[37m"      /* Blanc */
 
-enum	State
-{
-	LOGIN,
-	PASSWORD,
-	CONNECTED
-};
+#define msg_serv(code, nickname) (":42IRCserv " + code + " " + nickname + " :")
+#define msg_serv2(code, nickname) (":42IRCserv " + code + " " + nickname + " ")
+#define msg_serv3(code, nickname, support_info) (":42IRCserv " + code + " " + nickname + " " + support_info + " :are supported by this server\r\n")
 
-enum	Destination
-{
-	DEFAULT,
-	ANSWER_SENDER,
-	SEND_CHAN
-};
+#define msg_err(code, nickname) (":42IRCserv " + code + " * " + nickname + " :")
+
+#define supp_info() ("CHANTYPES=# PREFIX=(o)@ MODES=1 CHANLIMIT=#:5 NICKLEN=20 TOPICLEN=200")
+
+#define	priv_mess(nickname, channel, msg) (":" + nickname + " PRIVMSG" + ' ' + channel + ' ' + msg + "\r\n")
+
+#define user_id(nickname, username) (":" + nickname + "!" + username + "@localhost")
+#define RPL_INVITE(user_id, invited, channel) (user_id + " INVITE " + invited + " #" + channel + "\r\n")
+// [...]
+#define ERR_INVALIDMODEPARAM(client, channel, mode, password) ("696 " + client + " #" + channel + " " + mode + " " + password + " : password must only contained alphabetic character\r\n")
